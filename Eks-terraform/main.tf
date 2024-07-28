@@ -76,10 +76,10 @@ module "eks" {
   version         = "18.0.0"
   cluster_name    = "eks-cluster"
   cluster_version = "1.21"
-  subnets         = module.vpc.private_subnets
   vpc_id          = module.vpc.vpc_id
+  subnet_ids      = module.vpc.private_subnets
 
-  cluster_iam_role_name = aws_iam_role.eks_cluster_role.name
+  cluster_role_arn = aws_iam_role.eks_cluster_role.arn
 
   node_groups = {
     eks_nodes = {
