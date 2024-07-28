@@ -40,7 +40,7 @@ resource "aws_iam_role_policy_attachment" "eks_worker_node_role_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSCNIPolicy"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
   role       = aws_iam_role.eks_worker_node_role.name
 }
 
@@ -53,13 +53,11 @@ data "aws_vpc" "default" {
   default = true
 }
 
-data "aws_subnet_ids" "available" {
-  vpc_id = data.aws_vpc.default.id
-}
-
-data "aws_subnet" "available_subnets" {
-  count = length(data.aws_subnet_ids.available.ids)
-  id    = element(data.aws_subnet_ids.available.ids, count.index)
+data "aws_subnets" "public" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
 }
 
 resource "aws_eks_cluster" "eks_cluster" {
@@ -68,8 +66,8 @@ resource "aws_eks_cluster" "eks_cluster" {
 
   vpc_config {
     subnet_ids = [
-      for s in data.aws_subnet.available_subnets : s.id
-      if contains(["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"], s.availability_zone)
+      for s in data.aws_subnets.public.ids : s
+      if contains(["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"], element(aws_subnet.public_subnets, s).availability_zone)
     ]
   }
 
@@ -78,13 +76,18 @@ resource "aws_eks_cluster" "eks_cluster" {
   ]
 }
 
+data "aws_subnet" "public_subnets" {
+  for_each = toset(data.aws_subnets.public.ids)
+  id       = each.value
+}
+
 resource "aws_eks_node_group" "eks_node_group" {
   cluster_name    = aws_eks_cluster.eks_cluster.name
   node_group_name = "eks_node_group"
   node_role_arn   = aws_iam_role.eks_worker_node_role.arn
   subnet_ids      = [
-    for s in data.aws_subnet.available_subnets : s.id
-    if contains(["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"], s.availability_zone)
+    for s in data.aws_subnets.public.ids : s
+    if contains(["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"], element(aws_subnet.public_subnets, s).availability_zone)
   ]
 
   scaling_config {
