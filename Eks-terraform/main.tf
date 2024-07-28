@@ -79,15 +79,18 @@ module "eks" {
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.private_subnets
 
-  cluster_role_arn = aws_iam_role.eks_cluster_role.arn
+  cluster_enabled_log_types = ["api", "audit", "authenticator"]
 
-  node_groups = {
+  manage_aws_auth = true
+
+  eks_managed_node_groups = {
     eks_nodes = {
-      desired_capacity = 2
-      max_capacity     = 3
-      min_capacity     = 1
-
+      name = "eks-nodes"
       instance_type = "t2.medium"
+      desired_capacity = 2
+      min_capacity = 1
+      max_capacity = 3
+
 
       iam_role_arn = aws_iam_role.eks_worker_node_role.arn
     }
