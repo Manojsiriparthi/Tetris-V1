@@ -60,6 +60,11 @@ data "aws_subnets" "public" {
   }
 }
 
+data "aws_subnet" "public_subnet_details" {
+  for_each = toset(data.aws_subnets.public.ids)
+  id       = each.value
+}
+
 resource "aws_eks_cluster" "eks_cluster" {
   name     = "EKS_CLOUD"
   role_arn = aws_iam_role.eks_cluster_role.arn
@@ -67,7 +72,7 @@ resource "aws_eks_cluster" "eks_cluster" {
   vpc_config {
     subnet_ids = [
       for s in data.aws_subnets.public.ids : s
-      if contains(["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"], element(aws_subnet.public_subnets, s).availability_zone)
+      if contains(["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"], data.aws_subnet.public_subnet_details[s].availability_zone)
     ]
   }
 
@@ -76,18 +81,13 @@ resource "aws_eks_cluster" "eks_cluster" {
   ]
 }
 
-data "aws_subnet" "public_subnets" {
-  for_each = toset(data.aws_subnets.public.ids)
-  id       = each.value
-}
-
 resource "aws_eks_node_group" "eks_node_group" {
   cluster_name    = aws_eks_cluster.eks_cluster.name
   node_group_name = "eks_node_group"
   node_role_arn   = aws_iam_role.eks_worker_node_role.arn
   subnet_ids      = [
     for s in data.aws_subnets.public.ids : s
-    if contains(["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"], element(aws_subnet.public_subnets, s).availability_zone)
+    if contains(["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"], data.aws_subnet.public_subnet_details[s].availability_zone)
   ]
 
   scaling_config {
